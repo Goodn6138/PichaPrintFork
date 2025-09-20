@@ -1,1 +1,68 @@
-helloworld
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Image to 3D STL Generator</title>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 2rem;">
+  <h2>🖼️ Image to 3D STL Generator</h2>
+  
+  <form id="uploadForm">
+    <label>Upload Image:</label><br>
+    <input type="file" id="image" name="image" accept="image/*" required><br><br>
+
+    <label>Describe Image:</label><br>
+    <input type="text" id="description" name="description" placeholder="e.g. cow carrying milk" required style="width: 300px; padding: 5px;"><br><br>
+
+    <button type="submit" style="padding: 10px 20px;">Generate STL</button>
+  </form>
+
+  <p id="status" style="margin-top: 1rem; color: green;"></p>
+
+  <script>
+    const form = document.getElementById("uploadForm");
+    const status = document.getElementById("status");
+
+    // ⚠️ Replace with your backend ngrok URL
+    const BACKEND_URL = "https://49601405288e.ngrok-free.app/upload";
+
+    form.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      status.textContent = "Processing... Please wait.";
+
+      const formData = new FormData();
+      formData.append("image", document.getElementById("image").files[0]);
+      formData.append("description", document.getElementById("description").value);
+
+      try {
+        const response = await fetch(BACKEND_URL, {
+          method: "POST",
+          body: formData,
+          headers: {
+            "ngrok-skip-browser-warning": "true"   // 👈 this skips ngrok warning
+          }
+        });
+
+        if (!response.ok) {
+          throw new Error("Failed to generate STL");
+        }
+
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "model.stl";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+
+        status.textContent = "✅ STL generated and downloaded!";
+      } catch (err) {
+        console.error(err);
+        status.textContent = "❌ Error generating STL. Check backend logs.";
+      }
+    });
+  </script>
+</body>
+</html>
