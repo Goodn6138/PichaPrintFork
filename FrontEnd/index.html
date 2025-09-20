@@ -3,32 +3,127 @@
 <head>
   <meta charset="UTF-8">
   <title>Image to 3D STL Generator</title>
+  <style>
+    body {
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      margin: 0;
+    }
+
+    .card {
+      background: #fff;
+      padding: 2rem;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+      text-align: center;
+      width: 420px;
+      animation: fadeIn 0.8s ease-in-out;
+    }
+
+    h2 {
+      margin-bottom: 1rem;
+      font-size: 1.5rem;
+      color: #333;
+    }
+
+    label {
+      font-weight: 600;
+      display: block;
+      margin: 1rem 0 0.5rem;
+      color: #444;
+      text-align: left;
+    }
+
+    input[type="file"], 
+    input[type="text"] {
+      width: 100%;
+      padding: 0.6rem;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      transition: border 0.3s;
+    }
+
+    input[type="file"]:focus, 
+    input[type="text"]:focus {
+      border-color: #4facfe;
+      outline: none;
+    }
+
+    button {
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      border: none;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      color: white;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    button:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    #status {
+      margin-top: 1rem;
+      font-weight: 600;
+    }
+
+    #viewer {
+      margin-top: 1rem;
+      width: 100%;
+      height: 300px;
+      border: 1px solid #ddd;
+      border-radius: 8px;
+    }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(20px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+  </style>
 </head>
-<body style="font-family: Arial, sans-serif; padding: 2rem;">
-  <h2>🖼️ Image to 3D STL Generator</h2>
-  
-  <form id="uploadForm">
-    <label>Upload Image:</label><br>
-    <input type="file" id="image" name="image" accept="image/*" required><br><br>
+<body>
+  <div class="card">
+    <h2>🖼️ Image to 3D STL Generator</h2>
 
-    <label>Describe Image:</label><br>
-    <input type="text" id="description" name="description" placeholder="e.g. cow carrying milk" required style="width: 300px; padding: 5px;"><br><br>
+    <form id="uploadForm">
+      <label>Upload Image:</label>
+      <input type="file" id="image" name="image" accept="image/*" required>
 
-    <button type="submit" style="padding: 10px 20px;">Generate STL</button>
-  </form>
+      <label>Describe Image:</label>
+      <input type="text" id="description" name="description" placeholder="e.g. cow carrying milk" required>
 
-  <p id="status" style="margin-top: 1rem; color: green;"></p>
+      <button type="submit">⚙️ Generate STL</button>
+    </form>
+
+    <p id="status"></p>
+    <div id="viewer"></div>
+  </div>
+
+  <!-- three.js + STL Loader -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/loaders/STLLoader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.152.2/examples/js/controls/OrbitControls.js"></script>
 
   <script>
     const form = document.getElementById("uploadForm");
     const status = document.getElementById("status");
+    const viewer = document.getElementById("viewer");
 
     // ⚠️ Replace with your backend ngrok URL
     const BACKEND_URL = "https://9c2888bf9a60.ngrok-free.app/upload";
 
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      status.textContent = "Processing... Please wait.";
+      status.style.color = "orange";
+      status.textContent = "⏳ Processing... Please wait.";
 
       const formData = new FormData();
       formData.append("image", document.getElementById("image").files[0]);
@@ -38,18 +133,15 @@
         const response = await fetch(BACKEND_URL, {
           method: "POST",
           body: formData,
-          headers: {
-            "ngrok-skip-browser-warning": "true"   // 👈 this skips ngrok warning
-          }
+          headers: { "ngrok-skip-browser-warning": "true" }
         });
 
-        if (!response.ok) {
-          throw new Error("Failed to generate STL");
-        }
+        if (!response.ok) throw new Error("Failed to generate STL");
 
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
 
+        // Download automatically
         const a = document.createElement("a");
         a.href = url;
         a.download = "model.stl";
@@ -57,12 +149,61 @@
         a.click();
         a.remove();
 
-        status.textContent = "✅ STL generated and downloaded!";
+        // Show success
+        status.style.color = "green";
+        status.textContent = "✅ STL generated, downloaded, and ready for preview!";
+
+        // Render STL in viewer
+        renderSTL(url);
       } catch (err) {
         console.error(err);
+        status.style.color = "red";
         status.textContent = "❌ Error generating STL. Check backend logs.";
       }
     });
+
+    function renderSTL(fileUrl) {
+      // Clear previous viewer
+      viewer.innerHTML = "";
+
+      const scene = new THREE.Scene();
+      const camera = new THREE.PerspectiveCamera(45, viewer.clientWidth / viewer.clientHeight, 0.1, 1000);
+      const renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(viewer.clientWidth, viewer.clientHeight);
+      viewer.appendChild(renderer.domElement);
+
+      const controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.enableDamping = true;
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0x404040, 2);
+      scene.add(ambientLight);
+      const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
+      directionalLight.position.set(10, 10, 10);
+      scene.add(directionalLight);
+
+      // Load STL
+      const loader = new THREE.STLLoader();
+      loader.load(fileUrl, function (geometry) {
+        const material = new THREE.MeshPhongMaterial({ color: 0x4facfe, shininess: 100 });
+        const mesh = new THREE.Mesh(geometry, material);
+        geometry.computeBoundingBox();
+        const center = new THREE.Vector3();
+        geometry.boundingBox.getCenter(center);
+        mesh.position.sub(center); // center the model
+        scene.add(mesh);
+      });
+
+      camera.position.set(0, 0, 100);
+
+      // Animate
+      function animate() {
+        requestAnimationFrame(animate);
+        controls.update();
+        renderer.render(scene, camera);
+      }
+      animate();
+    }
   </script>
 </body>
 </html>
