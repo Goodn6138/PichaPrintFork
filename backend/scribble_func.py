@@ -13,7 +13,7 @@ def generate_glb_from_scribble(
     prompt: str,
     output_path: str = "./output.glb",
     seed: int = 42,
-    num_inference_steps: int = 16,
+    num_inference_steps: int = 8,
     scribble_confidence: float = 0.4,
     prompt_confidence: float = 1.0,
     device: str = "cuda",
