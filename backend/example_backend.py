@@ -1,4 +1,3 @@
-#THIS IS THE BARE MINIMUM FOR THE BACKEND REQUIRED.
 import os
 from flask import Flask, request, send_file, jsonify
 from werkzeug.utils import secure_filename
@@ -8,6 +7,27 @@ from flask_cors import CORS  # allow frontend (Render) to call backend
 # Your existing imports
 from backend import scribble_func as scribbler
 from backend import translate
+from huggingface_hub import snapshot_download
+from triposg.pipelines.pipeline_triposg import TripoSGPipeline
+from scripts.briarmbg import BriaRMBG
+from PIL import Image
+import torch
+from scripts.inference_triposg import *
+
+
+# 1. Load background removal model
+rmbg_net = BriaRMBG.from_pretrained("briaai/RMBG-1.4")
+rmbg_net.to("cuda")
+
+# 2. Load TripoSG pipeline
+triposg_weights = 'pretrained_weights/TripoSG'
+rmbg_weights_dir = 'pretrained_weights/RMBG-1.4'
+snapshot_download(repo_id="VAST-AI/TripoSG", local_dir=triposg_weights)
+snapshot_download(repo_id="briaai/RMBG-1.4", local_dir=rmbg_weights_dir)
+
+pipe = TripoSGPipeline.from_pretrained(triposg_weights).to("cuda", torch.float16)
+
+
 
 UPLOAD_FOLDER = "uploads"
 OUTPUT_FOLDER = "outputs"
@@ -59,6 +79,28 @@ def upload():
     )
 
     return send_file(output_file, as_attachment=True)
+
+@app.route("/image_upload" , methods= ["POST"])
+def image_route():
+  if "image_upload" not in request.files:
+    return jsonify({"error": "Image required " }), 400
+  file = request.files["image_upload"]
+  filename = secure_filename(file.filename)
+  image_path = os.path.join(UPLOAD_FOLDER, filename)
+  file.save(image_path)
+  output_file = os.path.join(OUTPUT_FOLDER, filename.split(".")[0] + "_image.stl")
+  mesh = run_triposg(
+      pipe = pipe,
+      image_input = image_path,
+      rmbg_net = rmbg_net,
+      seed = 123,
+      num_inference_steps=50,
+      guidance_scale=7.0,
+      faces=20000     
+  )
+
+  mesh.export(output_file)
+  return send_file(output_file, as_attachment=True)
 
 if __name__ == "__main__":
     port = 5000
