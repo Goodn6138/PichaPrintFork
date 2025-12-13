@@ -1,0 +1,7 @@
+# triposg.yaml
+model_id: "VAST-AI/TripoSG"
+dtype: "float16"
+device: "cuda"
+steps: 50
+guidance: 7.0
+faces: 40000
