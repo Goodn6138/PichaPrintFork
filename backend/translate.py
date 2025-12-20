@@ -1,8 +1,10 @@
 import cohere
-from google.colab import userdata
+#from google.colab import userdata
+import os
+
 
 # Load the API key
-api_key = userdata.get("COHERE")
+api_key = os.environ["COHERE"] #userdata.get("COHERE")
 if api_key is None:
     raise ValueError("Please set the COHER secret in Colab secrets.")
 
