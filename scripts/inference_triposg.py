@@ -4,7 +4,7 @@ import sys
 from glob import glob
 from typing import Any, Union
 
-import meshlib.mrmeshpy as mrmeshp #added this new replacement 
+import meshlib.mrmeshpy as mrmeshpy #added this new replacement 
 
 
 
