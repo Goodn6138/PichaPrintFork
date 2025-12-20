@@ -62,6 +62,8 @@ def simplify_mesh(mesh: trimesh.Trimesh, n_faces):
         ms = mesh_to_pymesh(mesh.vertices, mesh.faces)
         ms.meshing_merge_close_vertices()
         ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum = n_faces)
+
+ #       ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum = n_faces)
 #        try:
 #            ms.meshing_decimation_quadric_edge_collapse(targetfacenum=n_faces)
 #        except AttributeError:          # PyMeshLab ≥ 2022.12
