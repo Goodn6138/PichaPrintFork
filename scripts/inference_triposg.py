@@ -4,6 +4,12 @@ import sys
 from glob import glob
 from typing import Any, Union
 
+import meshlib.mrmeshpy as mrmeshp #added this new replacement 
+
+
+
+
+
 import numpy as np
 import torch
 import trimesh
@@ -56,12 +62,25 @@ def pymesh_to_trimesh(mesh):
     faces = mesh.face_matrix()#.tolist()
     return trimesh.Trimesh(vertices=verts, faces=faces)  #, vID, fID
 
+def simplify_mesh(mesh: trimesh.Trimesh, n_faces: int) -> trimesh.Trimesh:
+    # trimesh → MeshLib
+    verts = mrmeshpy.VerticalStitchIterator(mesh.vertices.tolist())
+    faces = mrmeshpy.FaceStitchIterator(mesh.faces.tolist())
+    m = mrmeshpy.Mesh(verts, faces)
+    m.packOptimally()                       # speeds-up decimation
+    settings = mrmeshpy.DecimateSettings()
+    settings.maxDeletedFaces = mesh.faces.shape[0] - n_faces
+    mrmeshpy.decimateMesh(m, settings)
+    # MeshLib → trimesh
+    return trimesh.Trimesh(np.asarray(m.points()), np.asarray(m.topology.getFaceVertices()))
+    
 
-def simplify_mesh(mesh: trimesh.Trimesh, n_faces):
-    if mesh.faces.shape[0] > n_faces:
-        ms = mesh_to_pymesh(mesh.vertices, mesh.faces)
-        ms.meshing_merge_close_vertices()
-        ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum = n_faces)
+
+#def simplify_mesh(mesh: trimesh.Trimesh, n_faces):
+#    if mesh.faces.shape[0] > n_faces:
+#        ms = mesh_to_pymesh(mesh.vertices, mesh.faces)
+#        ms.meshing_merge_close_vertices()
+#        ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum = n_faces)
 
  #       ms.meshing_decimation_quadric_edge_collapse_with_texture(targetfacenum = n_faces)
 #        try:
@@ -69,8 +88,8 @@ def simplify_mesh(mesh: trimesh.Trimesh, n_faces):
 #        except AttributeError:          # PyMeshLab ≥ 2022.12
 #            ms.simplification_quadric_edge_collapse_with_texture(targetfacenum=n_faces)
 #        return pymesh_to_trimesh(ms.current_mesh())
-    else:
-        return mesh
+ #   else:
+ #       return mesh
 
 if __name__ == "__main__":
     device = "cuda"
